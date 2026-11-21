@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 const OUT = 1024;
-const VX0 = 50, VY0 = 85, VS = 680; // camera crop in scene units
+const VX0 = 20, VY0 = 40, VS = 725; // camera crop in scene units
 const SS = 2;
 const W = OUT * SS, H = OUT * SS;
 const SC = (OUT * SS) / VS;
