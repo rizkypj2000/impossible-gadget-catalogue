@@ -312,6 +312,38 @@ shape(hx - 70, hy - 100, hx + 50, hy - 40, btnSdf, (x, y) => { const [, ly] = to
 { const [lx0, ly0] = [-70, -30]; const p = toW(lx0, ly0);
   shape(p[0] - 6, p[1] - 6, p[0] + 6, p[1] + 6, (x, y) => Math.hypot(x - p[0], y - p[1]) - 3.2, (x, y) => mix(hex("#2f7fd8"), hex("#cfe6ff"), Math.exp(-((x - p[0] + 1) ** 2 + (y - p[1] + 1) ** 2) / 2))); }
 
+// rim light: crisp bright edge on the upper-left facing contours of the handle
+shape(hx - 260, hy - 130, hx + 140, hy + 110, (x, y) => Math.abs(handleSdf(x, y) + 1.6) - 0.9, (x, y) => [1, 1, 1], 0.0);
+{
+  const e = 0.7;
+  shape(hx - 260, hy - 130, hx + 140, hy + 110, (x, y) => Math.abs(handleSdf(x, y) + 1.8) - 1.0, () => [1, 1, 1], 1);
+  // darken the lower-right edge for a defined silhouette
+  shade(hx - 260, hy - 130, hx + 140, hy + 110, (x, y) => {
+    const d = handleSdf(x, y); if (d > 0 || d < -6) return 0;
+    const gy = handleSdf(x, y + e) - handleSdf(x, y - e);
+    return clamp(gy / (2 * e)) * 0.18 * (1 - sstep(-6, -1, d) * 0);
+  });
+}
+// two chrome screws on the housing
+for (const [slx, sly] of [[-62, 38], [40, 40]]) {
+  const p = toW(slx, sly), R = 5.5;
+  shape(p[0] - 9, p[1] - 9, p[0] + 9, p[1] + 9, (x, y) => Math.hypot(x - p[0], y - p[1]) - R, (x, y) => {
+    const dx = (x - p[0]) / R, dy = (y - p[1]) / R;
+    let c = mix(hex("#5d636a"), hex("#f4f6f8"), clamp(0.55 - 0.5 * dx - 0.6 * dy));
+    const sp = Math.exp(-((dx + 0.35) ** 2 + (dy + 0.4) ** 2) / 0.05);
+    const slot = Math.abs((dx - dy) * 0.707) < 0.14 && Math.hypot(dx, dy) < 0.75 ? 0.45 : 0;
+    return [c[0] + sp * 0.4 - slot, c[1] + sp * 0.4 - slot, c[2] + sp * 0.4 - slot];
+  });
+}
+// splash ticks where rain hits the leaves
+for (let i = 0; i < 12; i++) {
+  const bx = potX - 55 + hash(i, 61) * 110, by = potTopY - 38 + hash(i, 63) * 22;
+  for (const sgn of [-1, 1]) {
+    const ax = bx, ay = by, ex = bx + sgn * (3 + hash(i, 67) * 3), ey = by - 4 - hash(i, 69) * 3;
+    shape(Math.min(ax, ex) - 2, ey - 2, Math.max(ax, ex) + 2, ay + 2, (x, y) => sdSeg(x, y, ax, ay, ex, ey) - 0.5, () => hex("#e6eef6"), 0.7);
+  }
+}
+
 // ---------- label text (5x7 pixel font) ----------
 const FONT: Record<string, string[]> = {
   N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
