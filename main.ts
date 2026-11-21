@@ -238,7 +238,7 @@ const cloudSdf = (x: number, y: number) => {
   return d + 3 * (vnoise(x * 0.12, y * 0.12) - 0.5);
 };
 const cWhite = hex("#fbfcfd"), cGrey = hex("#9aa3ad"), cMid = hex("#d6dbe1");
-shape(cloudX - 190, cloudY - 130, cloudX + 190, cloudBottom + 6, cloudSdf, (x, y) => {
+shape(cloudX - 190, cloudY - 130, cloudX + 190, cloudBottom + 6, cloudSdf, (x, y, d) => {
   // highest sphere surface
   let best = -1e9, nx = 0, ny = 0, nz = 0, wsum = 0;
   for (const c of circles) {
@@ -258,6 +258,7 @@ shape(cloudX - 190, cloudY - 130, cloudX + 190, cloudBottom + 6, cloudSdf, (x, y
   const lam = clamp(-0.45 * nx - 0.65 * ny + 0.6 * nz);
   let c = mix(cGrey, cMid, sstep(0.05, 0.5, lam)); c = mix(c, cWhite, sstep(0.45, 0.95, lam));
   const under = sstep(cloudY + 10, cloudBottom, y); c = mix(c, cGrey, under * 0.55);
+  c = mix(c, mix(cMid, cWhite, 0.4), sstep(-5, 0, d) * 0.65 * (1 - under * 0.5)); // soft translucent edge, no cut-out fringe
   const fluff = 0.03 * (vnoise(x * 0.15, y * 0.15) - 0.5) + 0.012 * (vnoise(x * 0.6, y * 0.6) - 0.5);
   return [c[0] + fluff, c[1] + fluff, c[2] + fluff * 1.1];
 }, 1, 1.6);
@@ -371,6 +372,15 @@ function text(str: string, lx0: number, ly0: number, px: number, col: RGB, alpha
     cx += (g[0].length + 1) * px;
   }
 }
+// engraved brushed-steel nameplate behind the wordmark
+shape(hx - 120, hy - 70, hx + 100, hy + 60, (x, y) => { const [lx, ly] = toL(x, y); return sdBox(lx + 11, ly - 1, 68, 20, 4); }, (x, y, d) => {
+  const [lx, ly] = toL(x, y);
+  let c = mix(hex("#9ea4ab"), hex("#e9ecef"), clamp(0.75 - (ly + 20) / 80));
+  const br = 0.05 * (vnoise(lx * 0.05, ly * 4) - 0.5);
+  const bevel = sstep(-2.5, 0, d);
+  const top = (ly < 1 ? 1 : -1) * bevel * 0.25;
+  return [c[0] + br + top, c[1] + br + top, c[2] + br + top];
+});
 text("NIMBUS", -72, -12, 3.6, hex("#2b2f35"), 0.92);
 text("CL-1", -50, 22, 1.8, hex("#8a8f96"), 0.9);
 
