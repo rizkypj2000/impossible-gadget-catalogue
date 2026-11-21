@@ -373,7 +373,7 @@ function text(str: string, lx0: number, ly0: number, px: number, col: RGB, alpha
   }
 }
 // engraved brushed-steel nameplate behind the wordmark
-shape(hx - 120, hy - 70, hx + 100, hy + 60, (x, y) => { const [lx, ly] = toL(x, y); return sdBox(lx + 11, ly - 1, 68, 20, 4); }, (x, y, d) => {
+shape(hx - 120, hy - 70, hx + 100, hy + 60, (x, y) => { const [lx, ly] = toL(x, y); return sdBox(lx + 10, ly - 1, 73, 20, 4); }, (x, y, d) => {
   const [lx, ly] = toL(x, y);
   let c = mix(hex("#9ea4ab"), hex("#e9ecef"), clamp(0.75 - (ly + 20) / 80));
   const br = 0.05 * (vnoise(lx * 0.05, ly * 4) - 0.5);
