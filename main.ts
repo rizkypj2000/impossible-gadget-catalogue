@@ -75,9 +75,9 @@ for (let Y = 0; Y < H; Y++) for (let X = 0; X < W; X++) {
 }
 
 // ---------- layout ----------
-const potX = 540, potBase = 660, potTopY = 548, potTopHW = 74, potBotHW = 56;
-const cloudX = 520, cloudY = 225;
-const hx = 235, hy = 585; // handle housing center
+const potX = 565, potBase = 660, potTopY = 548, potTopHW = 74, potBotHW = 56;
+const cloudX = 545, cloudY = 225;
+const hx = 285, hy = 590; // handle housing center
 const rot = -0.18;
 const cr = Math.cos(rot), sr = Math.sin(rot);
 const toL = (x: number, y: number): [number, number] => { const dx = x - hx, dy = y - hy; return [dx * cr + dy * sr, -dx * sr + dy * cr]; };
@@ -185,8 +185,8 @@ for (let i = 0; i < 70; i++) {
   if (ry1 <= ry0 + 3) continue;
   const slant = 0.10;
   const ax = rx, ay = ry0, bx = rx - (ry1 - ry0) * slant, by = ry1;
-  shape(Math.min(ax, bx) - 3, ay - 3, Math.max(ax, bx) + 3, by + 3, (x, y) => sdSeg(x, y, ax, ay, bx, by) - 0.9,
-    () => rainCol, 0.55 + 0.3 * hash(i, 5));
+  shape(Math.min(ax, bx) - 3, ay - 3, Math.max(ax, bx) + 3, by + 3, (x, y) => sdSeg(x, y, ax, ay, bx, by) - 0.6,
+    () => rainCol, 0.35 + 0.3 * hash(i, 5));
 }
 // a few droplets beaded on leaves
 for (let i = 0; i < 9; i++) {
@@ -226,18 +226,25 @@ const cloudSdf = (x: number, y: number) => {
 const cWhite = hex("#fbfcfd"), cGrey = hex("#9aa3ad"), cMid = hex("#d6dbe1");
 shape(cloudX - 190, cloudY - 130, cloudX + 190, cloudBottom + 6, cloudSdf, (x, y) => {
   // highest sphere surface
-  let best = -1e9, nx = 0, ny = 0, nz = 1;
+  let best = -1e9, nx = 0, ny = 0, nz = 0, wsum = 0;
   for (const c of circles) {
     const dx = x - c[0], dy = y - c[1], q = c[2] * c[2] - dx * dx - dy * dy;
     if (q <= 0) continue;
     const h = Math.sqrt(q) + c[2] * 0.3;
-    if (h > best) { best = h; nx = dx / c[2]; ny = dy / c[2]; nz = Math.sqrt(q) / c[2]; }
+    if (h > best) best = h;
   }
-  if (best < -1e8) { nx = 0; ny = 0.5; nz = 0.8; }
+  for (const c of circles) {
+    const dx = x - c[0], dy = y - c[1], q = c[2] * c[2] - dx * dx - dy * dy;
+    if (q <= 0) continue;
+    const h = Math.sqrt(q) + c[2] * 0.3;
+    const w = Math.exp((h - best) / 7);
+    nx += w * dx / c[2]; ny += w * dy / c[2]; nz += w * Math.sqrt(q) / c[2]; wsum += w;
+  }
+  if (wsum === 0) { nx = 0; ny = 0.5; nz = 0.8; } else { const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l; }
   const lam = clamp(-0.45 * nx - 0.65 * ny + 0.6 * nz);
   let c = mix(cGrey, cMid, sstep(0.05, 0.5, lam)); c = mix(c, cWhite, sstep(0.45, 0.95, lam));
   const under = sstep(cloudY + 10, cloudBottom, y); c = mix(c, cGrey, under * 0.55);
-  const fluff = 0.05 * (vnoise(x * 0.35, y * 0.35) - 0.5) + 0.03 * (vnoise(x * 0.9, y * 0.9) - 0.5);
+  const fluff = 0.03 * (vnoise(x * 0.15, y * 0.15) - 0.5) + 0.012 * (vnoise(x * 0.6, y * 0.6) - 0.5);
   return [c[0] + fluff, c[1] + fluff, c[2] + fluff * 1.1];
 }, 1, 1.6);
 
