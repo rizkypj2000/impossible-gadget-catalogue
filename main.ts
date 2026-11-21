@@ -3,9 +3,11 @@ import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-const OUT = 800;
+const OUT = 1024;
+const VX0 = 50, VY0 = 85, VS = 680; // camera crop in scene units
 const SS = 2;
 const W = OUT * SS, H = OUT * SS;
+const SC = (OUT * SS) / VS;
 const buf = new Float32Array(W * H * 3);
 
 type RGB = [number, number, number];
@@ -32,22 +34,22 @@ function blend(i: number, c: RGB, a: number) {
 // Draw a shape given in OUTPUT coordinates. sdf returns distance in output px (neg inside).
 function shape(x0: number, y0: number, x1: number, y1: number, sdf: (x: number, y: number) => number,
   col: (x: number, y: number, d: number) => RGB, alpha = 1, soft = 0.6) {
-  const X0 = Math.max(0, Math.floor(x0 * SS)), X1 = Math.min(W, Math.ceil(x1 * SS));
-  const Y0 = Math.max(0, Math.floor(y0 * SS)), Y1 = Math.min(H, Math.ceil(y1 * SS));
+  const X0 = Math.max(0, Math.floor((x0 - VX0) * SC)), X1 = Math.min(W, Math.ceil((x1 - VX0) * SC));
+  const Y0 = Math.max(0, Math.floor((y0 - VY0) * SC)), Y1 = Math.min(H, Math.ceil((y1 - VY0) * SC));
   for (let Y = Y0; Y < Y1; Y++) for (let X = X0; X < X1; X++) {
-    const x = (X + 0.5) / SS, y = (Y + 0.5) / SS;
+    const x = VX0 + (X + 0.5) / SC, y = VY0 + (Y + 0.5) / SC;
     const d = sdf(x, y);
-    const cov = clamp(0.5 - d / soft);
+    const cov = clamp(0.5 - d * (SC / SS) / soft);
     if (cov <= 0) continue;
     blend(Y * W + X, col(x, y, d), cov * alpha);
   }
 }
 // darkening multiplier (shadows)
 function shade(x0: number, y0: number, x1: number, y1: number, f: (x: number, y: number) => number) {
-  const X0 = Math.max(0, Math.floor(x0 * SS)), X1 = Math.min(W, Math.ceil(x1 * SS));
-  const Y0 = Math.max(0, Math.floor(y0 * SS)), Y1 = Math.min(H, Math.ceil(y1 * SS));
+  const X0 = Math.max(0, Math.floor((x0 - VX0) * SC)), X1 = Math.min(W, Math.ceil((x1 - VX0) * SC));
+  const Y0 = Math.max(0, Math.floor((y0 - VY0) * SC)), Y1 = Math.min(H, Math.ceil((y1 - VY0) * SC));
   for (let Y = Y0; Y < Y1; Y++) for (let X = X0; X < X1; X++) {
-    const m = 1 - f((X + 0.5) / SS, (Y + 0.5) / SS);
+    const m = 1 - f(VX0 + (X + 0.5) / SC, VY0 + (Y + 0.5) / SC);
     const k = (Y * W + X) * 3; buf[k] *= m; buf[k + 1] *= m; buf[k + 2] *= m * 1.01 > 1 ? 1 : m;
   }
 }
@@ -65,7 +67,7 @@ const sdSeg = (px: number, py: number, ax: number, ay: number, bx: number, by: n
 // ---------- background: seamless sweep ----------
 const bgTop = hex("#dcd8d2"), bgMid = hex("#ece9e4"), bgFloor = hex("#e4e0da");
 for (let Y = 0; Y < H; Y++) for (let X = 0; X < W; X++) {
-  const x = X / SS, y = Y / SS;
+  const x = VX0 + X / SC, y = VY0 + Y / SC;
   let c: RGB = y < 560 ? mix(bgTop, bgMid, sstep(0, 560, y)) : mix(bgMid, bgFloor, sstep(560, 800, y));
   const vx = (x - 420) / 520, vy = (y - 430) / 560;
   const v = 1 - 0.10 * (vx * vx + vy * vy);
@@ -136,6 +138,18 @@ shape(potX - 90, potTopY - 10, potX + 90, potTopY + 26, rimSdf, (x, y) => {
 shape(potX - 80, potTopY - 12, potX + 80, potTopY + 12, (x, y) => {
   const dx = (x - potX) / (potTopHW), dy = (y - (potTopY - 1)) / 8; return (Math.sqrt(dx * dx + dy * dy) - 1) * 8;
 }, (x, y) => { const n = vnoise(x * 0.8, y * 0.8); const c = hex("#3b2a20"); return mix(c, hex("#5a4232"), n * 0.7); });
+
+// wet patch: darker soaked terracotta on rim + upper pot where rain lands
+shade(potX - 95, potTopY - 12, potX + 95, potTopY + 70, (x, y) => {
+  if (rimSdf(x, y) > 0 && potBody(x, y) > 0) return 0;
+  const dx = (x - potX + 10) / 70, dy = (y - potTopY) / 40;
+  return 0.28 * Math.exp(-(dx * dx + dy * dy) * 1.6) * (0.85 + 0.3 * vnoise(x * 0.3, y * 0.3));
+});
+// water beads glinting on the wet rim
+for (let i = 0; i < 14; i++) {
+  const bx = potX - 60 + hash(i, 41) * 110, by = potTopY - 2 + hash(i, 43) * 20, r = 1.3 + hash(i, 47) * 1.4;
+  shape(bx - 4, by - 4, bx + 4, by + 4, (x, y) => Math.hypot(x - bx, y - by) - r, (x, y) => mix(hex("#6a2c16"), [1, 1, 1], 0.2 + 0.8 * Math.exp(-((x - bx + r * 0.35) ** 2 + (y - by + r * 0.35) ** 2) / (r * 0.25))), 0.85);
+}
 
 // ---------- succulent rosette ----------
 const leafA = hex("#4f8a5b"), leafB = hex("#9cc9a0"), leafTip = hex("#c7a0b5");
